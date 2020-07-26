@@ -62,10 +62,11 @@ class DataBase(DB):
 
 
     def delete_table(self, table_name: str) -> None:
-        raise NotImplementedError
+        self.db_tables.pop(table_name, None)
+        
 
     def get_tables_names(self) -> List[Any]:
-        raise NotImplementedError
+        return self.db_tables.keys()
 
     def query_multiple_tables(
             self,
