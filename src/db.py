@@ -2,6 +2,13 @@ from db_api import DB, DBTable, DBField, SelectionCriteria
 from typing import Any, Dict, List, Type
 
 
+class DataBaseField(DBField):
+    def __init__(self, name, type):
+        self.name = name
+        self.type = type
+
+
+
 class DataBaseTable(DBTable):  
     def __init__(self, name, fields, key_field_name):
         super.__init__()
@@ -67,6 +74,7 @@ class DataBase(DB):
 
     def get_tables_names(self) -> List[Any]:
         return self.db_tables.keys()
+
 
     def query_multiple_tables(
             self,
