@@ -54,10 +54,12 @@ class DataBase(DB):
 
 
     def num_tables(self) -> int:
-        raise NotImplementedError
+        return self.num_tables
+
 
     def get_table(self, table_name: str) -> DBTable:
-        raise NotImplementedError
+        return self.db_tables.get(table_name, None)
+
 
     def delete_table(self, table_name: str) -> None:
         raise NotImplementedError
