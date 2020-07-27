@@ -38,16 +38,17 @@ class DBTable(db_api.DBTable):
 
     def insert_record(self, values: Dict[str, Any]) -> None:
         if self.key_field_name not in values.keys():
-            raise KeyError("The key is missing")
+            raise ValueError("The key is missing")
 
         s = shelve.open(self.path_file)
 
-        if self.key_field_name in s.keys():
+        if str(values[self.key_field_name]) in s.keys():
             s.close()
-            raise KeyError("The key must be unique")
+            raise ValueError("The key must be unique")
  
         self.fields += [ DBField(item, Any) for item in values.keys() if item not in self.get_names_fields()]       
         s[str(values[self.key_field_name])] = values
+        self.num_record += 1
         s.close()
         
 
@@ -56,9 +57,10 @@ class DBTable(db_api.DBTable):
 
         if str(key) not in s.keys():
             s.close()
-            raise KeyError("The key isn't exists")
+            raise ValueError("The key isn't exists")
  
         s.pop(str(key))
+        self.num_record -= 1
         s.close()
         
 
@@ -75,6 +77,11 @@ class DBTable(db_api.DBTable):
 
     def update_record(self, key: Any, values: Dict[str, Any]) -> None:
         s = shelve.open(self.path_file, writeback=True)
+        
+        if str(key) not in s.keys():
+            s.close()
+            raise ValueError("The key isn't exists")
+        
         self.fields += [ DBField(item, Any) for item in values.keys() if item not in self.get_names_fields()]
         s[str(key)].update(values)
         s.close()
@@ -92,20 +99,29 @@ class DBTable(db_api.DBTable):
 class DataBase(db_api.DataBase):
     def __init__(self):
         self.db_tables = {}
-        self.num_tables = 0
+        self.num_tables_in_DB = 0
 
 
     def create_table(self, table_name: str, fields: List[DBField], key_field_name: str) -> DBTable:
+        if table_name in self.db_tables.keys():
+            raise ValueError("The table name exists in the database")
+
+        if key_field_name not in [field.name for field in fields]:
+            raise ValueError("The key doesn't exist in fields list")
+        
         self.db_tables[table_name] = DBTable(table_name, fields, key_field_name)
-        self.num_tables += 1
+        self.num_tables_in_DB += 1
         return self.db_tables[table_name]
 
 
     def num_tables(self) -> int:
-        return self.num_tables
+        return self.num_tables_in_DB
 
 
     def get_table(self, table_name: str) -> DBTable:
+        if table_name not in self.db_tables.keys():
+            raise ValueError("The table name doesn't exist in the database")
+
         return self.db_tables.get(table_name, None)
 
 
@@ -114,7 +130,7 @@ class DataBase(db_api.DataBase):
         
 
     def get_tables_names(self) -> List[Any]:
-        return self.db_tables.keys()
+        return list(self.db_tables.keys())
 
 
     def query_multiple_tables(
