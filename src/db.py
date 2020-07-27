@@ -21,11 +21,11 @@ class DBTable(db_api.DBTable):
         self.name = name
         self.fields = fields
         self.key_field_name = key_field_name
-        self.num_record = 0
         self.path_file = os.path.join('db_files', self.name + '.db')
 
         # create shelve file
         s = shelve.open(self.path_file)
+        self.num_record = len(s.keys())
         s.close()
 
     
@@ -96,8 +96,6 @@ class DBTable(db_api.DBTable):
     def create_index(self, field_to_index: str) -> None:
         raise NotImplementedError
 
-path_database_data = os.path.join('db_files', "database.csv")
-
 class DataBase(db_api.DataBase):
     def __init__(self):
         self.db_tables = {}
@@ -107,9 +105,8 @@ class DataBase(db_api.DataBase):
 
     def reload_from_disk(self):
         
-        with open(path_database_data) as csv_file:
+        with open('database.csv', 'r') as csv_file:
             csv_reader = csv.reader(csv_file)
-
             for row in csv_reader:
                 table_name = row[0]
                 self.db_tables[table_name] = DBTable(table_name, row[1], row[2])
@@ -127,7 +124,7 @@ class DataBase(db_api.DataBase):
         self.num_tables_in_DB += 1
 
         
-        with open(path_database_data, "a") as csv_file:
+        with open('database.csv', "a", newline='') as csv_file:
             csv_writer = csv.writer(csv_file)
 
             data_table = [table_name, fields, key_field_name]
@@ -147,18 +144,45 @@ class DataBase(db_api.DataBase):
         return self.db_tables.get(table_name, None)
 
 
-    def delete_table(self, table_name: str) -> None:
-        self.db_tables.pop(table_name, None)
-        
+    def delete_selve_file(self, table_name):
+        s = (os.path.join('db_files', table_name + ".db.bak"))
+        os.remove(s)
+        s = (os.path.join('db_files', table_name + ".db.dat"))
+        os.remove(s)
+        s = (os.path.join('db_files', table_name + ".db.dir"))
+        os.remove(s)
 
+
+    def delete_table(self, table_name: str) -> None:
+        if table_name not in self.db_tables.keys():
+            raise ValueError("The table name doesn't exist in the database")
+        self.num_tables_in_DB -= 1
+        self.delete_selve_file(table_name)
+        self.db_tables.pop(table_name)
+        
+        # remove the table from database.csv
+        with open('database.csv','r') as csv_file:
+            csv_reader = csv.reader(csv_file)
+            lines = []
+            for row in csv_reader:
+                lines += [row]
+            
+        with open('database.csv','w',newline='') as csv_file:
+            csv_writer = csv.writer(csv_file) 
+            for line in lines:
+                if line[0] != table_name:
+                    csv_writer.writerow(line)
+
+        
+        
     def get_tables_names(self) -> List[Any]:
         return list(self.db_tables.keys())
 
 
     def query_multiple_tables(
-            self,
-            tables: List[str],
-            fields_and_values_list: List[List[SelectionCriteria]],
-            fields_to_join_by: List[str]
-    ) -> List[Dict[str, Any]]:
-        raise NotImplementedError
+                self,
+                tables: List[str],
+                fields_and_values_list: List[List[SelectionCriteria]],
+                fields_to_join_by: List[str]
+        ) -> List[Dict[str, Any]]:
+            raise NotImplementedError
