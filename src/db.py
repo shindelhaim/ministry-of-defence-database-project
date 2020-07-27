@@ -11,9 +11,10 @@ class DBField(db_api.DBField):
 
 
 class SelectionCriteria(db_api.SelectionCriteria):
-    field_name: str
-    operator: str
-    value: Any
+    def __init__(self, field_name, operator, value):
+        self.field_name = field_name
+        self.operator = operator
+        self.value = value
 
 
 class DBTable(db_api.DBTable):  
@@ -97,6 +98,7 @@ class DBTable(db_api.DBTable):
         raise NotImplementedError
 
 class DataBase(db_api.DataBase):
+    
     def __init__(self):
         self.db_tables = {}
         self.num_tables_in_DB = 0
