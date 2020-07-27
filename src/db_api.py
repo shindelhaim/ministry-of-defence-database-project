@@ -57,7 +57,7 @@ class DBTable:
 
 @dataclass_json
 @dataclass
-class DB:
+class DataBase:
     # Put here any instance information needed to support the API
     def create_table(self,
                      table_name: str,
