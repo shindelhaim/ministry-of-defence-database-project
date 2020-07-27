@@ -96,17 +96,25 @@ class DBTable(db_api.DBTable):
     def create_index(self, field_to_index: str) -> None:
         raise NotImplementedError
 
+path_database_data = os.path.join('db_files', "database.csv")
 
 class DataBase(db_api.DataBase):
     def __init__(self):
         self.db_tables = {}
         self.num_tables_in_DB = 0
         self.reload_from_disk()
-
+        
 
     def reload_from_disk(self):
-        pass
+        
+        with open(path_database_data) as csv_file:
+            csv_reader = csv.reader(csv_file)
 
+            for row in csv_reader:
+                table_name = row[0]
+                self.db_tables[table_name] = DBTable(table_name, row[1], row[2])
+                self.num_tables_in_DB += 1
+                
 
     def create_table(self, table_name: str, fields: List[DBField], key_field_name: str) -> DBTable:
         if table_name in self.db_tables.keys():
@@ -118,8 +126,8 @@ class DataBase(db_api.DataBase):
         self.db_tables[table_name] = DBTable(table_name, fields, key_field_name)
         self.num_tables_in_DB += 1
 
-        path = os.path.join('db_files', "DataBase.csv")
-        with open(path, "a") as csv_file:
+        
+        with open(path_database_data, "a") as csv_file:
             csv_writer = csv.writer(csv_file)
 
             data_table = [table_name, fields, key_field_name]
