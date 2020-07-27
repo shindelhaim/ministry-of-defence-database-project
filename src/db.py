@@ -17,7 +17,6 @@ class SelectionCriteria(db_api.SelectionCriteria):
 
 class DBTable(db_api.DBTable):  
     def __init__(self, name, fields, key_field_name):
-        super.__init__()
         self.name = name
         self.fields = fields
         self.key_field_name = key_field_name
@@ -27,6 +26,10 @@ class DBTable(db_api.DBTable):
         # create shelve file
         s = shelve.open(self.path_file)
         s.close()
+
+    
+    def get_names_fields(self):
+        return [field.name for field in self.fields]
 
 
     def count(self) -> int:
@@ -40,20 +43,22 @@ class DBTable(db_api.DBTable):
         s = shelve.open(self.path_file)
 
         if self.key_field_name in s.keys():
+            s.close()
             raise KeyError("The key must be unique")
  
-        self.fields += list(set(values.keys()).difference(set(self.fields)))
-        s[values[self.key_field_name]] = values
+        self.fields += [ DBField(item, Any) for item in values.keys() if item not in self.get_names_fields()]       
+        s[str(values[self.key_field_name])] = values
         s.close()
         
 
     def delete_record(self, key: Any) -> None:
-        s = shelve.open(self.path_file)
+        s = shelve.open(self.path_file, writeback=True)
 
-        if key not in s.keys():
+        if str(key) not in s.keys():
+            s.close()
             raise KeyError("The key isn't exists")
  
-        s.pop(key)
+        s.pop(str(key))
         s.close()
         
 
@@ -63,15 +68,15 @@ class DBTable(db_api.DBTable):
 
     def get_record(self, key: Any) -> Dict[str, Any]:
         s = shelve.open(self.path_file)
-        record = s.get(key, None)
+        record = s.get(str(key), None)
         s.close()
         return record
 
 
     def update_record(self, key: Any, values: Dict[str, Any]) -> None:
         s = shelve.open(self.path_file, writeback=True)
-        self.fields += list(set(values.keys()).difference(set(self.fields)))
-        s[key].update(values)
+        self.fields += [ DBField(item, Any) for item in values.keys() if item not in self.get_names_fields()]
+        s[str(key)].update(values)
         s.close()
 
 
@@ -86,7 +91,6 @@ class DBTable(db_api.DBTable):
 
 class DataBase(db_api.DataBase):
     def __init__(self):
-        super.__init__()
         self.db_tables = {}
         self.num_tables = 0
 
