@@ -1,5 +1,4 @@
-import csv
-import os, shelve
+import os, shelve, csv
 from typing import Any, Dict, List, Type
 import db_api
 
@@ -64,10 +63,46 @@ class DBTable(db_api.DBTable):
         s.pop(str(key))
         self.num_record -= 1
         s.close()
+
+
+    def are_criterias_met(self, record: Dict[str, Any], criterias: List[SelectionCriteria]):
+        for criteria in criterias:
+            if criteria.field_name in record.keys():
+                if criteria.operator == '=':
+                    criteria.operator = "=="
+                try:
+                    is_criteria_met = eval(f'{record[criteria.field_name]} {criteria.operator} {criteria.value}')
+                
+                except NameError:
+
+                    is_criteria_met = eval(f'str(record[criteria.field_name]) {criteria.operator} str(criteria.value)')
+                
+                if not is_criteria_met:
+                    return False
         
+        return True
+
 
     def delete_records(self, criteria: List[SelectionCriteria]) -> None:
-        raise NotImplementedError
+        s = shelve.open(self.path_file, writeback=True)
+        
+        # using hash index by key
+        for item in criteria:
+            if item.field_name == self.key_field_name and item.operator == '=':
+                record = s[str(item.value)]
+
+                if self.are_criterias_met(record, criteria):
+                    s.pop(str(item.value))
+                    self.num_record -= 1
+                    s.close()
+                    return
+
+        for record in s.values():
+            if self.are_criterias_met(record, criteria):
+                s.pop(str(record[self.key_field_name]))
+                self.num_record -= 1
+        
+        s.close()
 
 
     def get_record(self, key: Any) -> Dict[str, Any]:
@@ -89,16 +124,34 @@ class DBTable(db_api.DBTable):
         s.close()
 
 
-    def query_table(self, criteria: List[SelectionCriteria]) \
-            -> List[Dict[str, Any]]:
-        raise NotImplementedError
+    def query_table(self, criteria: List[SelectionCriteria]) -> List[Dict[str, Any]]:
+        s = shelve.open(self.path_file)
+
+        list_match_records = []
+        
+        # using hash index by key
+        for item in criteria:
+            if item.field_name == self.key_field_name and item.operator == '==':
+                record = s[str(item.value)]
+
+                if self.are_criterias_met(record, criteria):
+                    s.close()
+                    return [record]
+
+        for record in s.values():
+            if self.are_criterias_met(record, criteria):
+                list_match_records += [record]
+        
+        s.close()
+        return list_match_records
 
 
+###############
     def create_index(self, field_to_index: str) -> None:
         raise NotImplementedError
 
+
 class DataBase(db_api.DataBase):
-    
     def __init__(self):
         self.db_tables = {}
         self.num_tables_in_DB = 0
@@ -106,14 +159,14 @@ class DataBase(db_api.DataBase):
         
 
     def reload_from_disk(self):
-        
         with open('database.csv', 'r') as csv_file:
             csv_reader = csv.reader(csv_file)
+
             for row in csv_reader:
                 table_name = row[0]
                 self.db_tables[table_name] = DBTable(table_name, row[1], row[2])
                 self.num_tables_in_DB += 1
-                
+
 
     def create_table(self, table_name: str, fields: List[DBField], key_field_name: str) -> DBTable:
         if table_name in self.db_tables.keys():
@@ -125,10 +178,8 @@ class DataBase(db_api.DataBase):
         self.db_tables[table_name] = DBTable(table_name, fields, key_field_name)
         self.num_tables_in_DB += 1
 
-        
         with open('database.csv', "a", newline='') as csv_file:
             csv_writer = csv.writer(csv_file)
-
             data_table = [table_name, fields, key_field_name]
             csv_writer.writerow(data_table)
 
@@ -158,6 +209,7 @@ class DataBase(db_api.DataBase):
     def delete_table(self, table_name: str) -> None:
         if table_name not in self.db_tables.keys():
             raise ValueError("The table name doesn't exist in the database")
+        
         self.num_tables_in_DB -= 1
         self.delete_selve_file(table_name)
         self.db_tables.pop(table_name)
@@ -174,17 +226,16 @@ class DataBase(db_api.DataBase):
             for line in lines:
                 if line[0] != table_name:
                     csv_writer.writerow(line)
+        
 
-        
-        
     def get_tables_names(self) -> List[Any]:
         return list(self.db_tables.keys())
 
-
+##############
     def query_multiple_tables(
-                self,
-                tables: List[str],
-                fields_and_values_list: List[List[SelectionCriteria]],
-                fields_to_join_by: List[str]
-        ) -> List[Dict[str, Any]]:
-            raise NotImplementedError
+            self,
+            tables: List[str],
+            fields_and_values_list: List[List[SelectionCriteria]],
+            fields_to_join_by: List[str]
+    ) -> List[Dict[str, Any]]:
+        raise NotImplementedError
