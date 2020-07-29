@@ -306,7 +306,7 @@ class DBTable(db_api.DBTable):
             lines = []
             for row in csv_reader:
                 if self.name == row[0]:
-                    row[3] += [field_to_index]
+                    row[3] = str(eval(row[3]) + [field_to_index]) 
 
                 lines += [row]
             
